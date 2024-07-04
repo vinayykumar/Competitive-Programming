@@ -1,0 +1,120 @@
+section .data
+    ; Declare variables
+    arr_times_8 dd 0          ; Array to store arr[i] * 8
+    n dd 0                    ; Number of elements in the array
+    tsum dq 0                 ; Total sum of array elements
+    mini dq 9223372036854775807 ; Minimum difference initialized to max possible value
+
+section .text
+    global _start
+
+_start:
+    ; Input: n
+    mov eax, 3              ; System call number for input (sys_read)
+    mov ebx, 0              ; File descriptor 0 (stdin)
+    mov ecx, n              ; Buffer to store n
+    int 0x80                ; Invoke kernel
+
+    ; Input: arr elements
+    mov edi, arr            ; Destination index for array elements
+    mov esi, n              ; Counter for array elements
+arr_input_loop:
+    mov eax, 3              ; System call number for input (sys_read)
+    mov ebx, 0              ; File descriptor 0 (stdin)
+    mov ecx, edi            ; Buffer to store element
+    int 0x80                ; Invoke kernel
+    add edi, 4              ; Move to next array element
+    dec esi                 ; Decrement array element counter
+    jnz arr_input_loop      ; Continue loop if not zero
+
+    ; Calculate tsum (total sum of array elements)
+    mov edi, arr            ; Start address of the array
+    mov esi, n              ; Counter for array elements
+    xor edx, edx            ; Clear edx for 64-bit arithmetic
+    xor eax, eax            ; Clear eax for 64-bit arithmetic
+tsum_calc_loop:
+    mov eax, [edi]          ; Load current array element
+    add edx, eax            ; Add current element to total sum
+    add edi, 4              ; Move to next array element
+    dec esi                 ; Decrement array element counter
+    jnz tsum_calc_loop      ; Continue loop if not zero
+    mov [tsum], rdx         ; Store total sum in tsum
+
+    ; Initialize loop variables
+    mov edi, 0              ; Start index of array elements (i = 0)
+    mov eax, [n]            ; Load number of elements in array
+    call solve              ; Call solve function
+    ; Print the result
+    mov eax, 1              ; System call number for output (sys_write)
+    mov ebx, 1              ; File descriptor 1 (stdout)
+    mov ecx, mini           ; Address of mini variable
+    mov edx, 8              ; Number of bytes to write
+    int 0x80                ; Invoke kernel
+
+    ; Exit the program
+    mov eax, 1              ; System call number for exit (sys_exit)
+    xor ebx, ebx            ; Exit status 0
+    int 0x80                ; Invoke kernel
+
+; Function to solve the problem
+solve:
+    push ebp                ; Save ebp
+    mov ebp, esp            ; Set ebp
+    push ebx                ; Save ebx
+    push esi                ; Save esi
+    push edi                ; Save edi
+    push edx                ; Save edx
+    ; Arguments:
+    ; [ebp+8]  : Address of arr[]
+    ; [ebp+12] : i
+    ; [ebp+16] : Address of mini
+    ; [ebp+20] : n
+    ; [ebp+24] : sum
+    ; [ebp+28] : tsum
+    ; Local variables:
+    ; ebp-4    : ans
+    ; ebp-12   : temp
+
+    ; Initialize local variables
+    sub esp, 8              ; Allocate space for ans (8 bytes)
+    mov dword [ebp-4], 0    ; ans = 0
+
+    ; Check if i == n
+    cmp dword [ebp+12], [ebp+20] ; Compare i and n
+    je solve_base_case      ; Jump to base case if i == n
+
+    ; Recursively call solve for (i+1)
+    mov eax, [ebp+12]       ; Load i
+    inc eax                 ; i++
+    push eax                ; Push updated i
+    push dword [ebp+28]     ; Push tsum
+    push dword [ebp+24]     ; Push sum
+    push dword [ebp+20]     ; Push n
+    push dword [ebp+16]     ; Push mini
+    push dword [ebp+8]      ; Push address of arr[]
+    call solve              ; Call solve function
+    add esp, 24             ; Clean up stack
+
+    ; Recursively call solve for (i+1) with updated sum
+    mov eax, [ebp+12]       ; Load i
+    inc eax                 ; i++
+    push eax                ; Push updated i
+    mov eax, [ebp+24]       ; Load sum
+    add eax, [ebp+8+4*eax]  ; Add arr[i] to sum
+    push eax                ; Push updated sum
+    push dword [ebp+28]     ; Push tsum
+    push dword [ebp+20]     ; Push n
+    push dword [ebp+16]     ; Push mini
+    push dword [ebp+8]      ; Push address of arr[]
+    call solve              ; Call solve function
+    add esp, 24             ; Clean up stack
+
+    ; Base case: i == n
+solve_base_case:
+    ; Calculate ans = abs(tsum - 2 * sum)
+    mov eax, [ebp+28]       ; Load tsum
+    sub eax, dword [ebp+24] ; tsum - sum
+    shl eax, 1              ; Multiply by 2
+    sub eax, [ebp+28]       ; tsum - 2 * sum
+    mov dword [ebp-12], eax ; Store in temp variable
+    mov eax
